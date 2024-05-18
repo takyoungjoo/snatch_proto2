@@ -2,9 +2,8 @@ import { Connection, VersionedTransaction, PublicKey, Keypair } from '@solana/we
 import fetch from 'cross-fetch';
 import bs58 from 'bs58';
 import { Wallet } from '@project-serum/anchor';
-import { getMint } from '@solana/spl-token';
-import { SOLANA_RPC_URL, PUBLIC_ADDRESS } from './config.js';
-import { getWalletBalance, getTokenDecimals } from './utils.js';
+import { getTokenDecimals } from './utils.js';
+import { SOLANA_RPC_URL } from './config.js';
 
 const connection = new Connection(SOLANA_RPC_URL);
 
@@ -44,7 +43,7 @@ export async function snipeToken(token, amount, chatId, walletInfo) {
       const [feeAccount] = await PublicKey.findProgramAddressSync(
         [
           Buffer.from("referral_ata"),
-          new PublicKey(PUBLIC_ADDRESS).toBuffer(),
+          new PublicKey(walletInfo.publicKey).toBuffer(), // 메모리에서 가져온 PUBLIC_ADDRESS
           new PublicKey(outputMint).toBuffer(),
         ],
         new PublicKey("REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3")
