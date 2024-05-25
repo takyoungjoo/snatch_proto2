@@ -2,12 +2,20 @@ import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
 import { TELEGRAM_BOT_TOKEN } from './src/config.js';
 import { handleCallbackQuery, handleMessage } from './src/handlers.js';
+import { initializeDatabase } from './src/database.js';
 
 const app = express();
 const port = 3000;
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 console.log('텔레그램 봇이 초기화되고 폴링을 시작했습니다...');
+
+// 데이터베이스 초기화
+initializeDatabase().then(() => {
+  console.log('데이터베이스가 초기화되었습니다.');
+}).catch(err => {
+  console.error('데이터베이스 초기화 중 오류가 발생했습니다:', err);
+});
 
 // Express.js 서버 설정 및 로깅
 app.get('/', (req, res) => {
@@ -35,7 +43,7 @@ bot.onText(/\/start/, (msg) => {
     }
   };
 
-  bot.sendMessage(chatId, '스내치봇 프로토타입 테스트 입니다\nsolana 가격 \nMarket Volume\nWallet address', opts)
+  bot.sendMessage(chatId, '스내치봇 프로토타입 테스트 입니다', opts)
     .then(() => {
       console.log(`채팅 ID ${chatId}에 메시지를 보냈습니다`);
     })

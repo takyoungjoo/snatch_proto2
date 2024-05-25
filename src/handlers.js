@@ -1,10 +1,12 @@
-import { generateNewAccount, getWallet } from './wallet.js';
+import { generateNewAccount, getWallet, getWalletBalance } from './wallet.js';
 import { performTrade } from './trade.js';
 import { createDCA, withdrawDCA } from './dca.js';
 import { snipeToken } from './snipe.js';
+import { getSlippage, setSlippage, getCurrentSlippage } from './settings.js';
 
 const tradeContext = {};
 const dcaContext = {};
+const settingsContext = {};
 
 export async function handleCallbackQuery(bot, callbackQuery) {
   const message = callbackQuery.message;
@@ -14,15 +16,16 @@ export async function handleCallbackQuery(bot, callbackQuery) {
 
   switch (data) {
     case 'wallet':
-      let wallet;
-      if (getWallet(chatId)) {
-        wallet = getWallet(chatId);
-        console.log(`채팅 ID ${chatId}에 대한 기존 지갑 정보를 반환합니다`);
-      } else {
-        wallet = generateNewAccount(chatId);
+      let wallet = await getWallet(chatId);
+      if (!wallet) {
+        wallet = await generateNewAccount(chatId);
         console.log(`채팅 ID ${chatId}에 대한 새 지갑을 생성하고 저장합니다`);
+      } else {
+        console.log(`채팅 ID ${chatId}에 대한 기존 지갑 정보를 반환합니다`);
       }
-      await bot.sendMessage(chatId, `지갑 정보:\nPublic Key: ${wallet.publicKey}\nPrivate Key: ${wallet.secretKey}`)
+
+      const balance = await getWalletBalance(wallet.publicKey);
+      await bot.sendMessage(chatId, `지갑 정보:\nPublic Key: ${wallet.publicKey}\nPrivate Key: ${wallet.secretKey}\nSolana 잔액: ${balance} SOL`)
         .then(() => console.log(`채팅 ID ${chatId}에 지갑 정보를 보냈습니다`))
         .catch(error => console.error(`채팅 ID ${chatId}에 지갑 정보 전송 실패: ${error}`));
       break;
@@ -41,7 +44,7 @@ export async function handleCallbackQuery(bot, callbackQuery) {
       break;
     case 'dca_withdraw':
       try {
-        const wallet = getWallet(chatId);
+        const wallet = await getWallet(chatId);
         const result = await withdrawDCA(chatId, wallet);
         await bot.sendMessage(chatId, `DCA 인출 완료: ${result}`);
       } catch (error) {
@@ -55,8 +58,17 @@ export async function handleCallbackQuery(bot, callbackQuery) {
         .then(() => console.log(`채팅 ID ${chatId}의 ${data} 콜백 쿼리에 응답했습니다`))
         .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
       break;
+    case 'refer':
+    case 'dashboard':
+    case 'news':
+      await bot.sendMessage(chatId, '곧 업데이트 될 기능입니다.')
+        .then(() => console.log(`채팅 ID ${chatId}의 ${data} 콜백 쿼리에 응답했습니다`))
+        .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
+      break;
     case 'settings':
-      await bot.sendMessage(chatId, '설정을 여기에 추가하세요.')
+      settingsContext[chatId] = {};
+      const currentSlippage = await getCurrentSlippage(chatId);
+      await bot.sendMessage(chatId, `설정할 슬리피지 값을 입력해 주세요 (현재값: ${currentSlippage}):`)
         .then(() => console.log(`채팅 ID ${chatId}의 settings 콜백 쿼리에 응답했습니다`))
         .catch(error => console.error(`채팅 ID ${chatId}의 settings 콜백 쿼리 응답 오류: ${error}`));
       break;
@@ -76,6 +88,22 @@ export async function handleMessage(bot, msg) {
     return;  // start 명령은 이미 처리됨
   }
 
+  if (settingsContext[chatId]) {
+    const slippageBps = parseInt(msg.text.trim(), 10);
+    if (isNaN(slippageBps)) {
+      await bot.sendMessage(chatId, '유효한 슬리피지 값을 입력해 주세요 (숫자).')
+        .then(() => console.log(`채팅 ID ${chatId}에 유효한 슬리피지 값을 입력하도록 요청했습니다`))
+        .catch(error => console.error(`채팅 ID ${chatId}에 유효한 슬리피지 값 요청 실패: ${error}`));
+    } else {
+      await setSlippage(chatId, slippageBps);
+      await bot.sendMessage(chatId, `슬리피지 값이 ${slippageBps}로 설정되었습니다.`)
+        .then(() => console.log(`채팅 ID ${chatId}에 슬리피지 값을 설정했습니다`))
+        .catch(error => console.error(`채팅 ID ${chatId}에 슬리피지 값 설정 실패: ${error}`));
+      delete settingsContext[chatId];
+    }
+    return;
+  }
+
   if (tradeContext[chatId] && !tradeContext[chatId].token) {
     tradeContext[chatId].token = msg.text.trim();
     await bot.sendMessage(chatId, `거래할 수량을 입력해 주세요:`)
@@ -88,12 +116,13 @@ export async function handleMessage(bot, msg) {
     tradeContext[chatId].amount = msg.text.trim();
     const { action, token, amount } = tradeContext[chatId];
     try {
-      const wallet = getWallet(chatId);
+      const wallet = await getWallet(chatId);
+      const slippageBps = await getSlippage(chatId);
       if (action === 'snipe') {
-        const result = await snipeToken(token, amount, chatId, wallet);
+        const result = await snipeToken(token, amount, chatId, wallet, slippageBps);
         await bot.sendMessage(chatId, `스나이프 완료: ${result}`);
       } else {
-        const result = await performTrade(action, token, amount, chatId, wallet);
+        const result = await performTrade(action, token, amount, chatId, wallet, slippageBps);
         await bot.sendMessage(chatId, `거래 완료: ${result}`);
       }
       delete tradeContext[chatId];
@@ -125,7 +154,7 @@ export async function handleMessage(bot, msg) {
     dcaContext[chatId].period = parseInt(msg.text.trim(), 10);
     const { token, totalAmount, period } = dcaContext[chatId];
     try {
-      const wallet = getWallet(chatId);
+      const wallet = await getWallet(chatId);
       const result = await createDCA(token, totalAmount, period, chatId, wallet);
       await bot.sendMessage(chatId, `DCA 계약 생성 완료: ${result}`);
       delete dcaContext[chatId];

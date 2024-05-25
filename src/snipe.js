@@ -2,19 +2,17 @@ import { Connection, VersionedTransaction, PublicKey, Keypair } from '@solana/we
 import fetch from 'cross-fetch';
 import bs58 from 'bs58';
 import { Wallet } from '@project-serum/anchor';
-import { getTokenDecimals } from './utils.js';
+import { getTokenDecimals, getWalletBalance } from './utils.js';
 import { SOLANA_RPC_URL } from './config.js';
 
 const connection = new Connection(SOLANA_RPC_URL);
 
-export async function snipeToken(token, amount, chatId, walletInfo) {
+export async function snipeToken(token, amount, chatId, walletInfo, slippageBps = 100) {
   if (!walletInfo) {
     throw new Error('지갑 정보가 없습니다. 먼저 지갑을 생성하세요.');
   }
 
-  const wallet = new Wallet(
-    Keypair.fromSecretKey(bs58.decode(walletInfo.secretKey))
-  );
+  const wallet = new Wallet(Keypair.fromSecretKey(bs58.decode(walletInfo.secretKey)));
 
   const balance = await getWalletBalance(connection, wallet.publicKey.toString());
   if (balance < 0.001) {
@@ -24,6 +22,11 @@ export async function snipeToken(token, amount, chatId, walletInfo) {
   const SOL_MINT = "So11111111111111111111111111111111111111112";
   const inputMint = SOL_MINT;
   const outputMint = token;
+
+  if (!inputMint || !outputMint) {
+    throw new Error('토큰 민트 주소가 올바르지 않습니다.');
+  }
+
   const decimals = await getTokenDecimals(connection, token);
   const amountInLowestDenomination = Math.round(parseFloat(amount) * (10 ** decimals));
 
@@ -36,18 +39,9 @@ export async function snipeToken(token, amount, chatId, walletInfo) {
     try {
       const quoteResponse = await (
         await fetch(
-          `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLowestDenomination}&slippageBps=100&platformFeeBps=20`
+          `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLowestDenomination}&slippageBps=${slippageBps}`
         )
       ).json();
-
-      const [feeAccount] = await PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("referral_ata"),
-          new PublicKey(walletInfo.publicKey).toBuffer(), // 메모리에서 가져온 PUBLIC_ADDRESS
-          new PublicKey(outputMint).toBuffer(),
-        ],
-        new PublicKey("REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3")
-      );
 
       const { swapTransaction } = await (
         await fetch("https://quote-api.jup.ag/v6/swap", {
@@ -59,16 +53,30 @@ export async function snipeToken(token, amount, chatId, walletInfo) {
             quoteResponse,
             userPublicKey: wallet.publicKey.toString(),
             wrapAndUnwrapSol: true,
-            feeAccount,
           }),
         })
       ).json();
 
       const swapTransactionBuf = Buffer.from(swapTransaction, "base64");
       const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+      // 최신 블록해시 가져오기
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+      transaction.message.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
+
       transaction.sign([wallet.payer]);
 
       const rawTransaction = transaction.serialize();
+
+      console.log(`트랜잭션 서명 완료`);
+
+      // 트랜잭션 시뮬레이션
+      const simulationResult = await connection.simulateTransaction(transaction);
+      if (simulationResult.value.err) {
+        console.error('트랜잭션 시뮬레이션 오류:', simulationResult.value.err);
+        throw new Error(`트랜잭션 시뮬레이션 오류: ${simulationResult.value.err}`);
+      }
 
       txid = await connection.sendRawTransaction(rawTransaction, {
         skipPreflight: false,
