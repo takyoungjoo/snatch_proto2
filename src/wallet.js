@@ -2,6 +2,7 @@ import { Keypair, Connection, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { dbPromise } from './database.js';
 import { SOLANA_RPC_URL } from './config.js';
+import {getWalletForUser, saveWalletForUser} from "./dynamo.js";
 
 const connection = new Connection(SOLANA_RPC_URL);
 
@@ -20,22 +21,28 @@ export async function generateNewAccount(chatId) {
   console.log("공개 키:", publicKey);
   console.log("개인 키:", secretKey);
 
-  const db = await dbPromise;
-  await db.run('INSERT INTO wallets (chatId, publicKey, secretKey) VALUES (?, ?, ?)', chatId.toString(), publicKey, secretKey);
+  const stored = await saveWalletForUser(chatId, publicKey, secretKey); // return {publicKey, secretKey}
+  if (stored == null) {
+    console.log("error saving wallet");
+    return {};
+  }
 
-  // 데이터베이스에 저장된 결과를 로그로 확인
-  const storedWallet = await getWallet(chatId);
-  console.log(`저장된 지갑 정보:`, storedWallet);
-
-  return { publicKey, secretKey };
+  // const db = await dbPromise;
+  // await db.run('INSERT INTO wallets (chatId, publicKey, secretKey) VALUES (?, ?, ?)', chatId.toString(), publicKey, secretKey);
+  //
+  // // 데이터베이스에 저장된 결과를 로그로 확인
+  // const storedWallet = await getWallet(chatId);
+  console.log(`저장된 지갑 정보:`, stored);
+  return stored;
 }
 
 export async function getWallet(chatId) {
-  const db = await dbPromise;
-  const row = await db.get('SELECT publicKey, secretKey FROM wallets WHERE chatId = ?', chatId.toString());
-  // 데이터베이스에서 가져온 결과를 로그로 확인
-  console.log(`검색된 지갑 정보 (채팅 ID: ${chatId}):`, row);
-  return row ? { publicKey: row.publicKey, secretKey: row.secretKey } : null;
+  return await getWalletForUser(chatId);
+  // const db = await dbPromise;
+  // const row = await db.get('SELECT publicKey, secretKey FROM wallets WHERE chatId = ?', chatId.toString());
+  // // 데이터베이스에서 가져온 결과를 로그로 확인
+  // console.log(`검색된 지갑 정보 (채팅 ID: ${chatId}):`, row);
+  // return row ? { publicKey: row.publicKey, secretKey: row.secretKey } : null;
 }
 
 export async function getWalletBalance(publicKey) {
