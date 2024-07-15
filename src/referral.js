@@ -2,13 +2,13 @@ import crypto from 'crypto';
 import {
     getReferralCountForUser,
     getReferrals,
-    saveReferralCodeForUser,
+    saveReferralCodeForUser, saveWalletForUser,
     updateReferralCountForUser
 } from "./dynamo.js";
 
 const postfixCount = 8;
 
-export function processReferral(chatId, referralCode) {
+export async function processReferral(chatId, referralCode) {
     let referringChatId = "";
     referringChatId = referralCode.slice(0, -postfixCount);
     if (referringChatId === chatId) {
@@ -16,7 +16,12 @@ export function processReferral(chatId, referralCode) {
         return;
     }
 
-    updateReferralCountForUser(referringChatId);
+    const stored = await updateReferralCountForUser(referringChatId);
+    if (stored == null) {
+        console.log("error saving wallet");
+        return {};
+    }
+
 }
 
 export function getTopReferrals(topNum) {
@@ -30,10 +35,16 @@ export function generateReferralCode(chatId) {
     return chatId + uuid;
 }
 
-export function getReferralCodeForUser(chatId) {
-    let referralCode = getReferralCountForUser(chatId);
-    if (referralCode === "") {
-        referralCode = generateReferralCode(chatId);
-        saveReferralCodeForUser(chatId, referralCode);
+export async function getReferralCodeForUser(chatId) {
+    try {
+        let referralCode = getReferralCountForUser(chatId);
+        if (referralCode === "") {
+            referralCode = generateReferralCode(chatId);
+            const data = await saveReferralCodeForUser(chatId, referralCode);
+        }
+        return referralCode;
+    }
+    catch (err) {
+        console.log("Error", err);
     }
 }

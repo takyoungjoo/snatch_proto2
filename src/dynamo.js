@@ -29,8 +29,9 @@ let paramEncrypt = {
 
 let paramReferral = {
         AttributesToGet: [
+            "ReferralCode",
             "ReferralCount",
-            "LatestTime",
+            "LatestReferralTime"
         ],
         TableName: tableReferrals,
         Key: {
@@ -44,9 +45,9 @@ let dynamoDB = new aws.DynamoDB();
 const tableName = "wallets";
 function fromWalletToParams(chatId, publicKey, secretKey, IV) {
     return {
-        TableName: tableName,
+        TableName: tableWallet,
         Item: {
-            ChatID: {S: chatId},
+            ChatID: {S: chatId}, // primary key
             PublicKey: {S: publicKey},
             SecretKey: {S: secretKey},
             IV: {S: IV},
@@ -54,10 +55,19 @@ function fromWalletToParams(chatId, publicKey, secretKey, IV) {
     };
 }
 
+function fromReferralCodeToParams(chatId, referralCode) {
+    return {
+        TableName: tableReferrals,
+        Item: {
+            ChatID: {S: chatId},  // primary key
+            ReferralCode: {S: referralCode},
+        },
+    };
+}
+
 function fromUserToParams(chatId, paramType) {
     if(paramType === paramTypeEncrypt){
         return injectChatIdToParams(chatId, paramEncrypt);
-
     }
     else if(paramType === paramTypeReferral){
         return injectChatIdToParams(chatId, paramReferral);
@@ -111,26 +121,98 @@ export async function saveWalletForUser(chatId, publicKey, secretKey) {
 }
 
 export async function saveReferralCodeForUser(chatId, referralCode) {
-}
-
-export async function updateReferralCountForUser(chatId) {
-}
-
-export async function getReferralCodeForUser(chatId) {
-   // Call DynamoDB to read the item from the table
-    let params = fromUserToParams(chatId, paramTypeReferral);
-    try {
-        // Call DynamoDB to read the item from the table
-        const data = await dynamoDB.getItem(params).promise()
+  try {
+        const params = buildReferralCountParams(chatId, referralCode);
+        const data = await dynamoDB.updateItem(params).promise();
         console.log("Success", data.Item);
         return data.Item["ReferralCode"];
     } catch (err) {
         console.log("Error", err);
-        throw err;
+    }
+}
+
+function buildReferralCountParams(chatId) {
+    return {
+        TableName: tableReferrals,
+        Key: {ChatID: chatId},
+        UpdateExpression: 'SET #referralCount = #referralCount + :increase #latestTime = :time',
+        ExpressionAttributeNames: {
+            '#referralCount': 'ReferralCount',
+            '#latestReferralTime': 'LatestReferralTime',
+        },
+        ExpressionAttributeValues: {
+            ":increase": {"N": 1},
+            ":time": {"N": Date.now()}
+        },
+    };
+}
+
+function buildReferralCodeParams(chatId, code) {
+    return {
+        TableName: tableReferrals,
+        Key: {ChatID: chatId},
+        UpdateExpression: 'SET #referralCode = if_not_exists($referralCode, :code)',
+        ExpressionAttributeNames: {
+            '#referralCode': 'ReferralCode',
+        },
+        ExpressionAttributeValues: {
+            ":code": {"S": code},
+        },
+    };
+}
+
+export async function updateReferralCountForUser(chatId) {
+    try {
+        const params = buildReferralCountParams(chatId);
+        const data = await dynamoDB.updateItem(params).promise();
+        console.log("Success", data.Item);
+        return data.Item["ReferralCount"];
+    } catch (err) {
+        console.log("Error", err);
+    }
+}
+
+export async function getReferralCodeForUser(chatId) {
+    try {
+        const dbItem = await getReferralInfoForUser(chatId);
+        if (dbItem == null) {
+            return null;
+        }
+
+        return dbItem["ReferralCode"];
+    } catch (err) {
+        console.log("Error", err);
     }
 }
 
 export async function getReferralCountForUser(chatId) {
+    try {
+        const dbItem = await getReferralInfoForUser(chatId);
+        if (dbItem == null) {
+            return null;
+        }
+
+        return dbItem["ReferralCount"];
+    } catch (err) {
+        console.log("Error", err);
+    }
+}
+
+export async function getReferralInfoForUser(chatId) {
+    let params = fromUserToParams(chatId, paramTypeReferral);
+    try {
+        // Call DynamoDB to read the item from the table
+        const data = await dynamoDB.getItem(params).promise()
+        if(data.Item){
+            console.log("Item found", data.Item);
+            return data.Item;
+        }
+
+        return null;
+    } catch (err) {
+        console.log("Error", err);
+        throw err;
+    }
 }
 
 // get top referral counts
