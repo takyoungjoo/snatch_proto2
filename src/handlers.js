@@ -3,6 +3,7 @@ import { performTrade } from './trade.js';
 import { createDCA, withdrawDCA } from './dca.js';
 import { snipeToken } from './snipe.js';
 import { getSlippage, setSlippage, getCurrentSlippage } from './settings.js';
+import {getReferralCodeForUser, getTopReferrals} from "./referral.js";
 
 const tradeContext = {};
 const dcaContext = {};
@@ -58,7 +59,17 @@ export async function handleCallbackQuery(bot, callbackQuery) {
         .then(() => console.log(`채팅 ID ${chatId}의 ${data} 콜백 쿼리에 응답했습니다`))
         .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
       break;
-    case 'refer':
+    case 'enter_referral_code':
+      // TODO: handle referral code
+      break;
+    case 'my_referral_code':
+      const referralCode = await getReferralCodeForUser(chatId);
+      await bot.sendMessage(chatId, '나의 리퍼럴 코드를 다른사람들과 공유하세요: ' + referralCode);
+      break;
+    case 'display_top_referrals':
+      const TOP_REFERRALS = 10;
+      const topReferrals = await getTopReferrals(TOP_REFERRALS);
+      break;
     case 'dashboard':
     case 'news':
       await bot.sendMessage(chatId, '곧 업데이트 될 기능입니다.')
