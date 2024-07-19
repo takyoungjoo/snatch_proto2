@@ -1,4 +1,4 @@
-import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
+import { Connection, Keypair, VersionedTransaction, PublicKey } from '@solana/web3.js';
 import fetch from 'cross-fetch';
 import bs58 from 'bs58';
 import { Wallet } from '@project-serum/anchor';
@@ -40,15 +40,23 @@ export async function performTrade(action, token, amount, chatId, walletInfo, sl
 
   const quoteResponse = await (
     await fetch(
-      `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLowestDenomination}&slippageBps=${slippageBps}`
+      `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLowestDenomination}&slippageBps=${slippageBps}&platformFeeBps=20`
     )
   ).json();
 
   console.log(`쿼트 응답:`, quoteResponse);
 
-  if (!wallet.publicKey || !outputMint) {
-    throw new Error('유효하지 않은 공용키 또는 출력 민트 주소입니다.');
-  }
+  // 레퍼럴 퍼블릭 주소
+  const REFERRAL_KEY = "EznwSFSguFPLkw1Dq2kCxsKrEor9oC2eSJyL1meZHNgU";
+  
+  const [feeAccount] = await PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("referral_ata"),
+      new PublicKey(REFERRAL_KEY).toBuffer(),
+      new PublicKey(outputMint).toBuffer(),
+    ],
+    new PublicKey("REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3")
+  );
 
   const { swapTransaction } = await (
     await fetch("https://quote-api.jup.ag/v6/swap", {
@@ -60,6 +68,7 @@ export async function performTrade(action, token, amount, chatId, walletInfo, sl
         quoteResponse,
         userPublicKey: wallet.publicKey.toString(),
         wrapAndUnwrapSol: true,
+        feeAccount,
       }),
     })
   ).json();

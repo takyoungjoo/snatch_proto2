@@ -34,14 +34,26 @@ export async function snipeToken(token, amount, chatId, walletInfo, slippageBps 
   let attempts = 0;
   let txid = null;
 
+  // 레퍼럴 퍼블릭 주소
+  const REFERRAL_KEY = "EznwSFSguFPLkw1Dq2kCxsKrEor9oC2eSJyL1meZHNgU";
+
   while (!txid && attempts < maxAttempts) {
     attempts += 1;
     try {
       const quoteResponse = await (
         await fetch(
-          `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLowestDenomination}&slippageBps=${slippageBps}`
+          `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountInLowestDenomination}&slippageBps=${slippageBps}&platformFeeBps=20`
         )
       ).json();
+
+      const [feeAccount] = await PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("referral_ata"),
+          new PublicKey(REFERRAL_KEY).toBuffer(),
+          new PublicKey(outputMint).toBuffer(),
+        ],
+        new PublicKey("REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3")
+      );
 
       const { swapTransaction } = await (
         await fetch("https://quote-api.jup.ag/v6/swap", {
@@ -53,6 +65,7 @@ export async function snipeToken(token, amount, chatId, walletInfo, slippageBps 
             quoteResponse,
             userPublicKey: wallet.publicKey.toString(),
             wrapAndUnwrapSol: true,
+            feeAccount,
           }),
         })
       ).json();
