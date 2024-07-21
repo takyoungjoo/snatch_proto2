@@ -1,10 +1,5 @@
 import crypto from 'crypto';
-import {
-    getReferralCountForUser,
-    getReferrals,
-    saveReferralCodeForUser, saveWalletForUser,
-    updateReferralCountForUser
-} from "./dynamo.js";
+import {getReferralCountForUser, getReferrals, saveReferralCodeForUser, updateReferralCountForUser} from "./dynamo.js";
 
 const postfixCount = 8;
 
@@ -13,15 +8,16 @@ export async function processReferral(chatId, referralCode) {
     referringChatId = referralCode.slice(0, -postfixCount);
     if (referringChatId === chatId) {
         console.log("user cannot refer himself");
-        return;
+        return -1;
     }
 
-    const stored = await updateReferralCountForUser(referringChatId);
-    if (stored == null) {
-        console.log("error saving wallet");
-        return {};
+    try {
+        return await updateReferralCountForUser(referringChatId);
     }
-
+    catch (err) {
+        console.log("error processing referral code");
+        return -1;
+    }
 }
 
 export function getTopReferrals(topNum) {

@@ -3,7 +3,7 @@ import { performTrade } from './trade.js';
 import { createDCA, withdrawDCA } from './dca.js';
 import { snipeToken } from './snipe.js';
 import { getSlippage, setSlippage, getCurrentSlippage } from './settings.js';
-import {getReferralCodeForUser, getTopReferrals} from "./referral.js";
+import {getReferralCodeForUser, getTopReferrals, processReferral} from "./referral.js";
 
 const tradeContext = {};
 const dcaContext = {};
@@ -61,6 +61,15 @@ export async function handleCallbackQuery(bot, callbackQuery) {
       break;
     case 'enter_referral_code':
       // TODO: handle referral code
+      // await bot.sendMessage(chatId, '리퍼럴 코드를 입력해 주세요:');
+      // const referralCount = await processReferral(chatId, referralCode);
+      // if (referralCode > 0) {
+      //   await bot.sendMessage(chatId, '리퍼럴 코드가 정상 처리되었습니다.')
+      // }
+      // else {
+      //   await bot.sendMessage(chatId, '리퍼럴 코드를 처리하는동안 오류가 발생했습니다.')
+      // }
+
       break;
     case 'my_referral_code':
       const referralCode = await getReferralCodeForUser(chatId);

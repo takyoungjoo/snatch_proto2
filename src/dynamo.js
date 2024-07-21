@@ -169,6 +169,7 @@ export async function updateReferralCountForUser(chatId) {
         return data.Item["ReferralCount"];
     } catch (err) {
         console.log("Error", err);
+        throw err;
     }
 }
 
