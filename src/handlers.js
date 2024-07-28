@@ -61,19 +61,16 @@ export async function handleCallbackQuery(bot, callbackQuery) {
       break;
     case 'enter_referral_code':
       // TODO: handle referral code
-      // await bot.sendMessage(chatId, '리퍼럴 코드를 입력해 주세요:');
-      // const referralCount = await processReferral(chatId, referralCode);
-      // if (referralCode > 0) {
-      //   await bot.sendMessage(chatId, '리퍼럴 코드가 정상 처리되었습니다.')
-      // }
-      // else {
-      //   await bot.sendMessage(chatId, '리퍼럴 코드를 처리하는동안 오류가 발생했습니다.')
-      // }
-
+      // await bot.sendMessage(chatId, '리퍼럴 코드를 입력해 주세요:')
+      //   .then(() => console.log(`채팅 ID ${chatId}의 ${data} 콜백 쿼리에 응답했습니다`))
+      //   .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
+      // var referralCodeToProcess = '11';
+      // const command = '/process_referral_code ' + referralCodeToProcess;
+      // await bot.sendMessage(chatId, command)
       break;
     case 'my_referral_code':
-      const referralCode = await getReferralCodeForUser(chatId);
-      await bot.sendMessage(chatId, '나의 리퍼럴 코드를 다른사람들과 공유하세요: ' + referralCode);
+      const myReferralCode = await getReferralCodeForUser(chatId);
+      await bot.sendMessage(chatId, '나의 리퍼럴 코드를 다른사람들과 공유하세요: ' + myReferralCode);
       break;
     case 'display_top_referrals':
       const TOP_REFERRALS = 10;
@@ -106,6 +103,25 @@ export async function handleMessage(bot, msg) {
   if (msg.text && msg.text.toLowerCase().includes('/start')) {
     console.log('/start 명령을 내부적으로 처리 중, 중복 처리를 건너뜁니다.');
     return;  // start 명령은 이미 처리됨
+  }
+
+  if (msg.text && msg.text.toLowerCase().includes('/process_referral_code')) {
+    let texts = msg.text.split(' ');
+    if (texts.length !== 2) {
+      console.log('유효한 명령이 아닙니다. 예시: /process_referral_code a1b2c3d4e5f6');
+      return;
+    }
+
+    const referralCodeToProcess = texts[1];
+    await processReferral(chatId, referralCodeToProcess);
+
+    if (referralCodeToProcess > 0) {
+      await bot.sendMessage(chatId, '리퍼럴 코드가 정상 처리되었습니다.')
+    }
+    else {
+      await bot.sendMessage(chatId, '리퍼럴 코드를 처리하는동안 오류가 발생했습니다.')
+    }
+    return;
   }
 
   if (settingsContext[chatId]) {

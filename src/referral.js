@@ -1,5 +1,11 @@
 import crypto from 'crypto';
-import {getReferralCountForUser, getReferrals, saveReferralCodeForUser, updateReferralCountForUser} from "./dynamo.js";
+import {
+    getReferralCodeForUser,
+    getReferrals,
+    saveReferralCodeForUser,
+    updateReferralCountForUser,
+    userHasBeenReferred
+} from "./dynamo.js";
 
 const postfixCount = 8;
 
@@ -12,7 +18,13 @@ export async function processReferral(chatId, referralCode) {
     }
 
     try {
-        return await updateReferralCountForUser(referringChatId);
+        // check if this person already redeemed referral code. no double-dipping
+        if(await userHasBeenReferred(chatId)){
+            console.log("user already used a referral code");
+            return -1;
+        }
+
+        return await updateReferralCountForUser(referringChatId, chatId);
     }
     catch (err) {
         console.log("error processing referral code");
@@ -33,7 +45,7 @@ export function generateReferralCode(chatId) {
 
 export async function getReferralCodeForUser(chatId) {
     try {
-        let referralCode = getReferralCountForUser(chatId);
+        let referralCode = await getReferralCodeForUser(chatId);
         if (referralCode === "") {
             referralCode = generateReferralCode(chatId);
             const data = await saveReferralCodeForUser(chatId, referralCode);

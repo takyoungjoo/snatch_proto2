@@ -8,6 +8,8 @@ aws.config.update({
  "secretAccessKey": ""
 });
 
+let dynamoDB = new aws.DynamoDB();
+
 const tableWallet = "wallets";
 const tableReferrals = "referrals";
 
@@ -29,9 +31,10 @@ let paramEncrypt = {
 
 let paramReferral = {
         AttributesToGet: [
-            "ReferralCode",
-            "ReferralCount",
-            "LatestReferralTime"
+            "ReferralCode", // user's referral Code
+            "ReferralCount", // number of times user's referral code has been used
+            "LatestReferralTime",
+            "ReferralUsed" // if user used referral code provided by other
         ],
         TableName: tableReferrals,
         Key: {
@@ -41,8 +44,6 @@ let paramReferral = {
         },
     };
 
-let dynamoDB = new aws.DynamoDB();
-const tableName = "wallets";
 function fromWalletToParams(chatId, publicKey, secretKey, IV) {
     return {
         TableName: tableWallet,
@@ -122,7 +123,7 @@ export async function saveWalletForUser(chatId, publicKey, secretKey) {
 
 export async function saveReferralCodeForUser(chatId, referralCode) {
   try {
-        const params = buildReferralCountParams(chatId, referralCode);
+        const params = buildReferralCodeParams(chatId, referralCode);
         const data = await dynamoDB.updateItem(params).promise();
         console.log("Success", data.Item);
         return data.Item["ReferralCode"];
@@ -147,6 +148,20 @@ function buildReferralCountParams(chatId) {
     };
 }
 
+function buildReferralUsedParams(chatId) {
+    return {
+        TableName: tableReferrals,
+        Key: {ChatID: chatId},
+        UpdateExpression: 'SET #referralUsed = :val',
+        ExpressionAttributeNames: {
+            '#referralUsed': 'ReferralUsed',
+        },
+        ExpressionAttributeValues: {
+            ":val": {"BOOL": true}
+        },
+    };
+}
+
 function buildReferralCodeParams(chatId, code) {
     return {
         TableName: tableReferrals,
@@ -161,12 +176,15 @@ function buildReferralCodeParams(chatId, code) {
     };
 }
 
-export async function updateReferralCountForUser(chatId) {
+export async function updateReferralCountForUser(referringChatId, referredChatId) {
     try {
-        const params = buildReferralCountParams(chatId);
-        const data = await dynamoDB.updateItem(params).promise();
-        console.log("Success", data.Item);
-        return data.Item["ReferralCount"];
+        const referralCountParams = buildReferralCountParams(referringChatId);
+        const referralUsedParams = buildReferralUsedParams(referredChatId);
+        const countData = await dynamoDB.updateItem(referralCountParams).promise();
+        const usedData = await dynamoDB.updateItem(referralUsedParams).promise();
+        console.log("save success for referrer", countData.Item);
+        console.log("save success for referred", usedData.Item);
+        return countData.Item["ReferralCount"];
     } catch (err) {
         console.log("Error", err);
         throw err;
@@ -177,7 +195,7 @@ export async function getReferralCodeForUser(chatId) {
     try {
         const dbItem = await getReferralInfoForUser(chatId);
         if (dbItem == null) {
-            return null;
+            return "";
         }
 
         return dbItem["ReferralCode"];
@@ -235,6 +253,19 @@ export async function getReferrals(limit) {
 
         console.log(data.Items.length);
         return data.Items;
+    } catch (err) {
+        console.log("Error", err);
+    }
+}
+
+export async function userHasBeenReferred(chatId) {
+    try {
+        const dbItem = await getReferralInfoForUser(chatId);
+        if (dbItem == null) {
+            return false;
+        }
+
+        return dbItem["ReferralUsed"];
     } catch (err) {
         console.log("Error", err);
     }
