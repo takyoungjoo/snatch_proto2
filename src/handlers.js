@@ -7,6 +7,7 @@ import {getReferralCodeForUser, getTopReferrals, processReferral} from "./referr
 
 const tradeContext = {};
 const dcaContext = {};
+const referralContext = {};
 const settingsContext = {};
 
 export async function handleCallbackQuery(bot, callbackQuery) {
@@ -60,22 +61,21 @@ export async function handleCallbackQuery(bot, callbackQuery) {
         .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
       break;
     case 'enter_referral_code':
-      // TODO: handle referral code
-      // await bot.sendMessage(chatId, '리퍼럴 코드를 입력해 주세요:')
-      //   .then(() => console.log(`채팅 ID ${chatId}의 ${data} 콜백 쿼리에 응답했습니다`))
-      //   .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
-      // var referralCodeToProcess = '11';
-      // const command = '/process_referral_code ' + referralCodeToProcess;
-      // await bot.sendMessage(chatId, command)
+      referralContext[chatId] = {};
+      await bot.sendMessage(chatId, '리퍼럴 코드를 입력해 주세요 (1인 1회로 제한됩니다):')
+        .then(() => console.log(`채팅 ID ${chatId}의 ${data} 콜백 쿼리에 응답했습니다`))
+        .catch(error => console.error(`채팅 ID ${chatId}의 ${data} 콜백 쿼리 응답 오류: ${error}`));
       break;
     case 'my_referral_code':
+      console.log(chatId);
+      // const myReferralCode = "";
       const myReferralCode = await getReferralCodeForUser(chatId);
       await bot.sendMessage(chatId, '나의 리퍼럴 코드를 다른사람들과 공유하세요: ' + myReferralCode);
       break;
-    case 'display_top_referrals':
-      const TOP_REFERRALS = 10;
-      const topReferrals = await getTopReferrals(TOP_REFERRALS);
-      break;
+    // case 'display_top_referrals':
+    //   const TOP_REFERRALS = 10;
+    //   const topReferrals = await getTopReferrals(TOP_REFERRALS);
+    //   break;
     case 'dashboard':
     case 'news':
       await bot.sendMessage(chatId, '곧 업데이트 될 기능입니다.')
@@ -105,17 +105,25 @@ export async function handleMessage(bot, msg) {
     return;  // start 명령은 이미 처리됨
   }
 
+  let referralCodeToProcess = "";
   if (msg.text && msg.text.toLowerCase().includes('/process_referral_code')) {
     let texts = msg.text.split(' ');
     if (texts.length !== 2) {
+      await bot.sendMessage(chatId, '유효한 명령이 아닙니다. 예시: /process_referral_code a1b2c3d4e5f6')
       console.log('유효한 명령이 아닙니다. 예시: /process_referral_code a1b2c3d4e5f6');
       return;
     }
 
-    const referralCodeToProcess = texts[1];
-    await processReferral(chatId, referralCodeToProcess);
+    referralCodeToProcess = texts[1];
+  }
 
-    if (referralCodeToProcess > 0) {
+  if (referralContext[chatId]) {
+    referralCodeToProcess = msg.text.trim();
+  }
+
+  if (referralCodeToProcess !== "") {
+    const result = await processReferral(chatId, referralCodeToProcess);
+    if (result > 0) {
       await bot.sendMessage(chatId, '리퍼럴 코드가 정상 처리되었습니다.')
     }
     else {
@@ -123,6 +131,14 @@ export async function handleMessage(bot, msg) {
     }
     return;
   }
+
+
+  if (referralContext[chatId]) {
+    const referralCodeToProcess = msg.text.trim();
+
+  }
+
+
 
   if (settingsContext[chatId]) {
     const slippageBps = parseInt(msg.text.trim(), 10);

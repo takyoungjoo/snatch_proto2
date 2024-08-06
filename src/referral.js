@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import {
-    getReferralCodeForUser,
+    getReferralCodeForUserFromDB,
     getReferrals,
     saveReferralCodeForUser,
     updateReferralCountForUser,
@@ -45,7 +45,7 @@ export function generateReferralCode(chatId) {
 
 export async function getReferralCodeForUser(chatId) {
     try {
-        let referralCode = await getReferralCodeForUser(chatId);
+        let referralCode = await getReferralCodeForUserFromDB(chatId);
         if (referralCode === "") {
             referralCode = generateReferralCode(chatId);
             const data = await saveReferralCodeForUser(chatId, referralCode);

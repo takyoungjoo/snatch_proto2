@@ -1,6 +1,8 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import {decrypt, encrypt, refresh_iv} from "./encryption.js";
 
-let aws = require('aws-sdk');
+let aws= require('aws-sdk');
 //TODO: AWS Config Info
 aws.config.update({
  "region": "",
@@ -45,6 +47,7 @@ let paramReferral = {
     };
 
 function fromWalletToParams(chatId, publicKey, secretKey, IV) {
+    chatId = chatId.toString();
     return {
         TableName: tableWallet,
         Item: {
@@ -57,6 +60,7 @@ function fromWalletToParams(chatId, publicKey, secretKey, IV) {
 }
 
 function fromReferralCodeToParams(chatId, referralCode) {
+    chatId = chatId.toString();
     return {
         TableName: tableReferrals,
         Item: {
@@ -67,6 +71,7 @@ function fromReferralCodeToParams(chatId, referralCode) {
 }
 
 function fromUserToParams(chatId, paramType) {
+    chatId = chatId.toString();
     if(paramType === paramTypeEncrypt){
         return injectChatIdToParams(chatId, paramEncrypt);
     }
@@ -79,6 +84,7 @@ function fromUserToParams(chatId, paramType) {
 }
 
 function injectChatIdToParams(chatId, params){
+    chatId = chatId.toString();
     var copy = {};
     Object.assign(copy, params);
     copy["Key"] = {
@@ -122,7 +128,7 @@ export async function saveWalletForUser(chatId, publicKey, secretKey) {
 }
 
 export async function saveReferralCodeForUser(chatId, referralCode) {
-  try {
+    try {
         const params = buildReferralCodeParams(chatId, referralCode);
         const data = await dynamoDB.updateItem(params).promise();
         console.log("Success", data.Item);
@@ -133,6 +139,7 @@ export async function saveReferralCodeForUser(chatId, referralCode) {
 }
 
 function buildReferralCountParams(chatId) {
+    chatId = chatId.toString();
     return {
         TableName: tableReferrals,
         Key: {ChatID: chatId},
@@ -191,7 +198,7 @@ export async function updateReferralCountForUser(referringChatId, referredChatId
     }
 }
 
-export async function getReferralCodeForUser(chatId) {
+export async function getReferralCodeForUserFromDB(chatId) {
     try {
         const dbItem = await getReferralInfoForUser(chatId);
         if (dbItem == null) {

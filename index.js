@@ -39,7 +39,7 @@ bot.onText(/\/start/, (msg) => {
         [{ text: 'Wallet', callback_data: 'wallet' }, { text: 'Refer', callback_data: 'refer' }, { text: 'Settings', callback_data: 'settings' }],
         [{ text: 'DCA', callback_data: 'dca' }, { text: 'Snipe', callback_data: 'snipe' }],
         [{ text: 'DCA Withdraw', callback_data: 'dca_withdraw' }, { text: 'Dashboard', callback_data: 'dashboard' }, { text: 'News/Channel', callback_data: 'news' }],
-        [{ text: 'Enter Referral Code', callback_data: 'enter_referral_code' }, { text: 'My Referral Code', callback_data: 'my_referral_code' }, { text: 'Top Referrers', callback_data: 'display_top_referrals' }]
+        [{ text: 'Enter Referral Code', callback_data: 'enter_referral_code' }, { text: 'My Referral Code', callback_data: 'my_referral_code' }] //{ text: 'Top Referrers', callback_data: 'display_top_referrals' }
       ]
     }
   };
