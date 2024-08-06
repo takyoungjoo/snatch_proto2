@@ -132,14 +132,6 @@ export async function handleMessage(bot, msg) {
     return;
   }
 
-
-  if (referralContext[chatId]) {
-    const referralCodeToProcess = msg.text.trim();
-
-  }
-
-
-
   if (settingsContext[chatId]) {
     const slippageBps = parseInt(msg.text.trim(), 10);
     if (isNaN(slippageBps)) {

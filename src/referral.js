@@ -10,8 +10,7 @@ import {
 const postfixCount = 8;
 
 export async function processReferral(chatId, referralCode) {
-    let referringChatId = "";
-    referringChatId = referralCode.slice(0, -postfixCount);
+    const referringChatId = referralCode.slice(0, -postfixCount);
     if (referringChatId === chatId) {
         console.log("user cannot refer himself");
         return -1;

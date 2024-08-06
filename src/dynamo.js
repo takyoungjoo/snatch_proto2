@@ -253,7 +253,7 @@ export async function getReferrals(limit) {
         let result = []
         const data = await dynamoDB.scan(params).promise();
 
-        if (data.Items.length == 0) {
+        if (data.Items.length === 0) {
              console.log("no result");
              return result;
         }
